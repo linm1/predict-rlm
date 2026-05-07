@@ -53,7 +53,7 @@ def parse_args() -> argparse.Namespace:
 async def main() -> None:
     args = parse_args()
 
-    lm = CopilotLM(model=args.model, cache=False)
+    lm = CopilotLM(model=args.model, cache_ttl=0)
     rlm = PredictRLM(QA, lm=lm, sub_lm=lm)
 
     result = await rlm.aforward(question=args.question)

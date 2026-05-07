@@ -25,9 +25,41 @@ Run `PredictRLM` using a GitHub Copilot subscription as the LM backend — no Op
 # 1. Install predict-rlm
 uv add predict-rlm
 
-# 2. Install copilot-dspy (pinned SHA — no PyPI release)
-uv pip install "copilot-dspy @ git+https://github.com/linm1/copilot-dspy@0398e20404723de988cb78cfde89ca8466f99c0a"
+# 2. Install copilot-dspy
+#
+# The upstream repo ships no packaging metadata, so `uv pip install
+# "copilot-dspy @ git+https://..."` fails.  Use the clone-and-install
+# workaround below instead.
+#
+# Clone at the pinned SHA and add a minimal pyproject.toml so pip can build it:
+git clone https://github.com/linm1/copilot-dspy.git
+cd copilot-dspy
+git checkout 0398e20404723de988cb78cfde89ca8466f99c0a
+# pyproject.toml is already present in the clone after the steps above, OR
+# create it manually if needed (see note below).
+cd ..
+uv pip install -e ./copilot-dspy
 ```
+
+> **Note — missing `pyproject.toml`:** If the clone has no `pyproject.toml`, create
+> `copilot-dspy/pyproject.toml` with the following content before running
+> `uv pip install -e ./copilot-dspy`:
+>
+> ```toml
+> [build-system]
+> requires = ["setuptools>=68", "wheel"]
+> build-backend = "setuptools.build_meta"
+>
+> [project]
+> name = "copilot-dspy"
+> version = "0.1.0"
+> description = "DSPy BaseLM backed by the GitHub Copilot Chat API"
+> requires-python = ">=3.9"
+> dependencies = ["dspy-ai>=2.4.0", "requests>=2.31.0", "urllib3>=2.0.0"]
+>
+> [tool.setuptools]
+> py-modules = ["copilot_dspy_client"]
+> ```
 
 ## Run
 
@@ -50,7 +82,7 @@ Complete auth in your browser. Subsequent runs reuse the cached token.
 `CopilotLM` is a `dspy.LM` subclass from `copilot-dspy`. Because `PredictRLM` accepts any `dspy.LM` instance for both `lm=` and `sub_lm=`, no changes to predict-rlm are needed:
 
 ```python
-lm = CopilotLM(model="gpt-4o", cache=False)
+lm = CopilotLM(model="gpt-4o", cache_ttl=0)
 rlm = PredictRLM(QA, lm=lm, sub_lm=lm)
 result = await rlm.aforward(question="...")
 ```
