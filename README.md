@@ -147,6 +147,10 @@ from predict_rlm.skills import pdf, spreadsheet
 rlm = PredictRLM(ProcessInvoices, skills=[pdf, spreadsheet])
 ```
 
+### Using GitHub Copilot OAuth (community)
+
+If you have a GitHub Copilot subscription, you can use it as the LM backend via the community [`copilot-dspy`](https://github.com/linm1/copilot-dspy) adapter — no separate API key needed. See [examples/copilot_oauth/](examples/copilot_oauth/) for setup instructions and risks (ToS, no upstream license, fragility).
+
 ## Next steps
 
 - [How it works](docs/how-it-works.md) — understand the sandbox, REPL loop, signatures, and file I/O
