@@ -1,14 +1,15 @@
-"""Judge LM scorer for generated SDTM SAS scripts.
+"""Scoring helpers for generated SDTM SAS scripts.
 
-Scores on four weighted criteria (total = 1.0):
-  0.4  Required/expected variables present in DATA step
-  0.3  Controlled-terminology codelist assignments
-  0.2  Inline derivation comments for derived variables
-  0.1  Mandatory boilerplate (STUDYID, DOMAIN, USUBJID, LABEL)
+When a gold-standard reference script is available, the scorer measures
+normalized reference-line coverage so the bundled references define the
+ceiling without penalizing scripts that include additional correct detail.
+Without a scorable reference, it falls back to the heuristic SDTM checks
+below.
 """
 
 from __future__ import annotations
 
+from collections import Counter
 import re
 
 # Required/expected variables per domain (subset used for scoring).
@@ -108,11 +109,89 @@ def _score_boilerplate(sas_code: str, domain: str) -> tuple[float, list[str]]:
     return sum(ok for _, ok in checks) / len(checks), missing
 
 
-def judge_sdtm_script(sas_code: str, domain: str) -> tuple[float, str]:
+def _normalize_reference_lines(sas_code: str) -> list[str]:
+    lines: list[str] = []
+    in_leading_comment = False
+    seen_code = False
+    for raw_line in sas_code.splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        if not seen_code:
+            if in_leading_comment:
+                if "*/" in stripped:
+                    in_leading_comment = False
+                continue
+            if stripped.startswith("/*"):
+                if "*/" not in stripped:
+                    in_leading_comment = True
+                continue
+        normalized = re.sub(r"\s+", " ", stripped).strip().lower()
+        lines.append(normalized)
+        seen_code = True
+    return lines
+
+
+def _reference_score(
+    sas_code: str,
+    reference_lines: list[str],
+) -> tuple[float, list[str], list[str]]:
+    actual_lines = _normalize_reference_lines(sas_code)
+
+    actual_counts = Counter(actual_lines)
+    reference_counts = Counter(reference_lines)
+    overlap = sum(
+        min(actual_counts[line], reference_counts[line])
+        for line in reference_counts
+    )
+    score = overlap / len(reference_lines)
+
+    missing_lines = [
+        line
+        for line, count in reference_counts.items()
+        for _ in range(count - actual_counts.get(line, 0))
+        if count > actual_counts.get(line, 0)
+    ]
+    unexpected_lines = [
+        line
+        for line, count in actual_counts.items()
+        for _ in range(count - reference_counts.get(line, 0))
+        if count > reference_counts.get(line, 0)
+    ]
+    return score, missing_lines, unexpected_lines
+
+
+def judge_sdtm_script(
+    sas_code: str,
+    domain: str,
+    reference_sas_code: str | None = None,
+) -> tuple[float, str]:
     """Score a generated SDTM SAS script against four weighted criteria.
 
     Returns (score, feedback) where score is in [0.0, 1.0].
     """
+    if reference_sas_code:
+        reference_lines = _normalize_reference_lines(reference_sas_code)
+        if reference_lines:
+            score, missing_lines, unexpected_lines = _reference_score(sas_code, reference_lines)
+            parts: list[str] = [f"domain={domain} score={score:.3f}"]
+            if missing_lines:
+                parts.append("missing reference lines: " + " | ".join(missing_lines[:5]))
+            if unexpected_lines:
+                parts.append("unexpected lines: " + " | ".join(unexpected_lines[:5]))
+            if score >= 1.0:
+                parts.append("all checks passed")
+            return score, "\n".join(parts)
+
+        fallback_note = "reference script had no scorable lines; used heuristic scoring"
+    else:
+        fallback_note = None
+
+    if reference_sas_code:
+        fallback_prefix = [fallback_note]
+    else:
+        fallback_prefix = []
+
     s_vars, m_vars = _score_required_vars(sas_code, domain)
     s_cl, m_cl = _score_codelists(sas_code, domain)
     s_comments, m_comments = _score_derivation_comments(sas_code, domain)
@@ -120,7 +199,7 @@ def judge_sdtm_script(sas_code: str, domain: str) -> tuple[float, str]:
 
     score = 0.4 * s_vars + 0.3 * s_cl + 0.2 * s_comments + 0.1 * s_boiler
 
-    parts: list[str] = [f"domain={domain} score={score:.3f}"]
+    parts: list[str] = [*fallback_prefix, f"domain={domain} score={score:.3f}"]
     if m_vars:
         parts.append(f"missing required vars: {', '.join(m_vars)}")
     if m_cl:

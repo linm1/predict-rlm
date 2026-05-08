@@ -66,7 +66,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--source",
         default=str(SAMPLE_DIR / "source_data"),
-        help="Path to folder containing source .sas7bdat files",
+        help="Path to folder containing source .sas7bdat or .xpt files",
     )
     parser.add_argument(
         "--template",

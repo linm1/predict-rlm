@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import inspect
+import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from rlm_gepa import AgentSpec, OptimizeConfig
 
 from ..signature import GenerateSDTMDomain
 from ..skills import analyze_sas_file, analyze_sas_folder, analyze_sdtm_domain, list_sas_files, list_sdtm_domains, read_sas_template
+
+COPILOT_MODEL = "gpt-4o"
+COPILOT_SUB_LM_MODEL = "gpt-4o-mini"
 
 
 def _format_tool(fn: object) -> str:
@@ -82,14 +87,42 @@ class SdtmGepaConfig(OptimizeConfig):
     train_dir: Path = Path(__file__).parent.parent / "sample" / "train"
     val_ratio: float = 0.20
     seed: int = 42
-    cases_per_example: int = 1
 
 
-def default_config() -> SdtmGepaConfig:
+def _import_copilot_lm() -> type[Any]:
+    local_checkout = Path(__file__).resolve().parents[3] / "copilot-dspy"
+    if local_checkout.exists():
+        local_path = str(local_checkout)
+        if local_path not in sys.path:
+            sys.path.insert(0, local_path)
+
+    try:
+        from copilot_dspy_client import CopilotLM
+    except ImportError as exc:
+        raise RuntimeError(
+            "copilot-dspy not installed. Run `uv pip install -e ./copilot-dspy` or "
+            "install it from https://github.com/linm1/copilot-dspy."
+        ) from exc
+    return CopilotLM
+
+
+def build_copilot_lm(model: str) -> Any:
+    return _import_copilot_lm()(model=model)
+
+
+def default_config(
+    *,
+    model: str = COPILOT_MODEL,
+    sub_lm_model: str = COPILOT_SUB_LM_MODEL,
+    proposer_model: str | None = None,
+    proposer_sub_lm_model: str | None = None,
+) -> SdtmGepaConfig:
+    proposer_model = proposer_model or model
+    proposer_sub_lm_model = proposer_sub_lm_model or sub_lm_model
     return SdtmGepaConfig(
-        executor_lm="openai/gpt-5.4-mini",
-        executor_sub_lm="openai/gpt-5.4-mini",
-        proposer_lm="anthropic/claude-sonnet-4-6",
-        proposer_sub_lm="openai/gpt-5.4-mini",
+        executor_lm=build_copilot_lm(model),
+        executor_sub_lm=build_copilot_lm(sub_lm_model),
+        proposer_lm=build_copilot_lm(proposer_model),
+        proposer_sub_lm=build_copilot_lm(proposer_sub_lm_model),
         max_metric_calls=200,
     )

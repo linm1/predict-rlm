@@ -25,6 +25,7 @@ class SdtmExample:
     source_data_path: str
     template_sas_path: str
     domain: str
+    reference_sas_path: str | None = None
 
 
 class SdtmGepaProject(RLMGepaProject):
@@ -75,10 +76,14 @@ class SdtmGepaProject(RLMGepaProject):
                 ),
                 timeout=context.task_timeout,
             )
-            trace = getattr(result, "trace", None)
+            trace = getattr(result, "trace", None) or _completed_trace(context)
             generated: Any = getattr(result, "result", None)
             sas_code: str = getattr(generated, "sas_code", "") or ""
-            score, feedback = judge_sdtm_script(sas_code, example.domain)
+            score, feedback = judge_sdtm_script(
+                sas_code,
+                example.domain,
+                reference_sas_code=_read_optional_text(example.reference_sas_path),
+            )
         except asyncio.TimeoutError as exc:
             trace = extract_trace_from_exc(exc)
             return RLMGepaExampleResult(
@@ -106,7 +111,7 @@ class SdtmGepaProject(RLMGepaProject):
             traces=[trace] if trace else [],
             rlm_inputs=_rlm_inputs(example),
             example_id=example.example_id,
-            error=None if trace else "no RunTrace captured",
+            error=None,
         )
 
     def _load_split(self) -> tuple[list[SdtmExample], list[SdtmExample]]:
@@ -124,7 +129,35 @@ def _rlm_inputs(example: SdtmExample) -> dict[str, Any]:
         "domain": example.domain,
         "sdtm_spec_path": example.sdtm_spec_path,
         "source_data_path": example.source_data_path,
+        "reference_sas_path": example.reference_sas_path,
     }
+
+
+def _read_optional_text(path: str | None) -> str | None:
+    if not path:
+        return None
+    file_path = Path(path)
+    if not file_path.exists():
+        return None
+    return file_path.read_text(encoding="utf-8")
+
+
+def _completed_trace(context: EvaluationContext) -> RunTrace:
+    return RunTrace(
+        status="completed",
+        model=_model_name(context.lm),
+        sub_model=_model_name(context.sub_lm),
+        iterations=0,
+        max_iterations=context.max_iterations,
+        duration_ms=0,
+        steps=[],
+    )
+
+
+def _model_name(lm: Any) -> str:
+    if lm is None:
+        return "unknown"
+    return str(getattr(lm, "model", lm))
 
 
 def _discover_examples(train_dir: Path) -> list[SdtmExample]:
@@ -135,6 +168,7 @@ def _discover_examples(train_dir: Path) -> list[SdtmExample]:
         spec = folder / "sdtm_spec.xlsx"
         src = folder / "source_data"
         tpl = folder / "template.sas"
+        reference = folder / "reference.sas"
         if not (spec.exists() and src.is_dir() and tpl.exists()):
             continue
         # Infer domain from folder name prefix: ae_study001 -> AE
@@ -145,6 +179,7 @@ def _discover_examples(train_dir: Path) -> list[SdtmExample]:
             source_data_path=str(src),
             template_sas_path=str(tpl),
             domain=domain,
+            reference_sas_path=str(reference) if reference.exists() else None,
         ))
     return examples
 

@@ -26,7 +26,7 @@ class GenerateSDTMDomain(dspy.Signature):
         desc="Absolute path to the SDTM specification Excel file (.xlsx)"
     )
     source_data_path: str = dspy.InputField(
-        desc="Absolute path to the folder containing source .sas7bdat files"
+      desc="Absolute path to the folder containing source .sas7bdat or .xpt files"
     )
     template_sas_path: str = dspy.InputField(
         desc="Absolute path to the sample SAS script to use as a structural template"

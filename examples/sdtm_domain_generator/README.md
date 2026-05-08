@@ -3,7 +3,7 @@
 Generate a complete SAS script for an SDTM domain by combining:
 
 - An **SDTM specification Excel file** (domain variables, codelists, derivation rules)
-- **Source SAS datasets** (`.sas7bdat`) whose schema is extracted automatically
+- **Source SAS datasets** (`.sas7bdat` or `.xpt`) whose schema is extracted automatically
 - A **SAS template script** whose structure and macro style is adapted
 
 The RLM picks the best-fit domain from the spec, maps source columns to SDTM
@@ -46,7 +46,7 @@ Place in `sample/input/`:
 | File | Description |
 |------|-------------|
 | `sdtm_spec.xlsx` | SDTM specification with sheets: Variables, Datasets, Codelists, Methods, Comments |
-| `source_data/*.sas7bdat` | Raw source SAS datasets |
+| `source_data/*.sas7bdat` or `source_data/*.xpt` | Raw source SAS datasets |
 | `template.sas` | Sample SAS script defining macro style and DATA step structure |
 
 A starter `template.sas` (DM domain pattern) is provided — replace with your own.
@@ -65,7 +65,7 @@ Options:
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--spec` | `sample/input/sdtm_spec.xlsx` | SDTM spec Excel file |
-| `--source` | `sample/input/source_data/` | Folder of `.sas7bdat` files |
+| `--source` | `sample/input/source_data/` | Folder of `.sas7bdat` or `.xpt` files |
 | `--template` | `sample/input/template.sas` | SAS template to adapt |
 | `--model` | `gpt-5.4` | Outer LLM model (Copilot) |
 | `--sub-lm-model` | `gpt-5-mini` | Sub-LM model for `predict()` calls |

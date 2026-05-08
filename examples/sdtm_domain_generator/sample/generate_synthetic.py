@@ -8,7 +8,7 @@ Creates 8 training examples covering all SDTM domain classes:
   Special Purpose:     DS (+ SUPPDS), DM
 
 Each example folder contains:
-  source_data/  - raw .sas7bdat source datasets
+    source_data/  - raw SAS transport (.xpt) source datasets
   sdtm_spec.xlsx - SDTM specification workbook
   template.sas   - domain SAS template script
   reference.sas  - gold-standard SDTM mapping script
@@ -347,7 +347,7 @@ def _fmt_date(d: date) -> str:
     return d.isoformat()
 
 
-def write_sas7bdat(df: pd.DataFrame, path: Path) -> None:
+def write_sas_transport_file(df: pd.DataFrame, path: Path) -> None:
     """Write DataFrame as SAS XPORT (.xpt) file — SAS-readable transport format."""
     xpt_path = path.with_suffix(".xpt")
     xpt_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1570,7 +1570,7 @@ def generate_example(base: Path, folder: str, primary: str, supp: str | None, n_
 
     for ds_name, df in source_map.items():
         if not df.empty:
-            write_sas7bdat(df, src / f"{ds_name}.xpt")
+            write_sas_transport_file(df, src / f"{ds_name}.xpt")
 
     domains = [primary] + ([supp] if supp else [])
     build_sdtm_spec_excel(out / "sdtm_spec.xlsx", domains)
@@ -1596,7 +1596,7 @@ def main() -> None:
     for folder, primary, supp, n in EXAMPLES:
         generate_example(base, folder, primary, supp, n)
     print(f"\nDone. {len(EXAMPLES)} training examples written.")
-    print("Validate .sas7bdat files on your SAS runtime before use.")
+    print("Validate the generated .xpt files on your SAS runtime before use.")
 
 
 if __name__ == "__main__":
