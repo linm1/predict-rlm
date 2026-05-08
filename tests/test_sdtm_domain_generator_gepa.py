@@ -15,6 +15,7 @@ import examples.sdtm_domain_generator.gepa.config as gepa_config_module
 import examples.sdtm_domain_generator.gepa.project as project_module
 from examples.sdtm_domain_generator.gepa.scoring import judge_sdtm_script
 from examples.sdtm_domain_generator.skills import analyze_sas_file, list_sas_files
+import rlm_gepa
 from rlm_gepa import EvaluationContext
 
 SAMPLE_TRAIN_DIR = (
@@ -128,18 +129,18 @@ def test_default_config_builds_copilot_lms(monkeypatch: pytest.MonkeyPatch):
 
     config = gepa_config_module.default_config()
 
-    assert created_models == ["gpt-4o", "gpt-4o-mini", "gpt-4o", "gpt-4o-mini"]
-    assert config.executor_lm.model == "gpt-4o"
-    assert config.executor_sub_lm.model == "gpt-4o-mini"
-    assert config.proposer_lm.model == "gpt-4o"
-    assert config.proposer_sub_lm.model == "gpt-4o-mini"
+    assert created_models == ["gpt-5.4", "gpt-5-mini", "gpt-5.4", "gpt-5-mini"]
+    assert config.executor_lm.model == "gpt-5.4"
+    assert config.executor_sub_lm.model == "gpt-5-mini"
+    assert config.proposer_lm.model == "gpt-5.4"
+    assert config.proposer_sub_lm.model == "gpt-5-mini"
 
 
-def test_gepa_parse_args_defaults_to_smoke_tested_copilot_models():
+def test_gepa_parse_args_defaults_to_gpt5_copilot_models():
     args = gepa_main._parse_args([])
 
-    assert args.model == "gpt-4o"
-    assert args.sub_lm_model == "gpt-4o-mini"
+    assert args.model == "gpt-5.4"
+    assert args.sub_lm_model == "gpt-5-mini"
 
 
 def test_gepa_parse_args_accepts_copilot_model_overrides():
@@ -161,6 +162,71 @@ def test_gepa_parse_args_accepts_copilot_model_overrides():
     assert args.sub_lm_model == "gpt-5-mini"
     assert args.proposer_model == "gpt-5.4"
     assert args.proposer_sub_lm_model == "gpt-5-mini"
+
+
+def test_gepa_parse_args_accepts_smoke_flag():
+    args = gepa_main._parse_args(["--smoke"])
+
+    assert args.smoke is True
+
+
+def test_gepa_parse_args_rejects_smoke_and_check_together():
+    with pytest.raises(SystemExit):
+        gepa_main._parse_args(["--smoke", "--check"])
+
+
+def test_gepa_main_smoke_uses_one_eval_budget(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+):
+    captured: dict[str, object] = {}
+
+    def fake_build_copilot_lm(model: str) -> SimpleNamespace:
+        return SimpleNamespace(model=model)
+
+    def fake_run_optimization(project, config):
+        captured["project"] = project
+        captured["config"] = config
+        return SimpleNamespace(run_dir=str(tmp_path), best_idx=0, best_val_score=0.0)
+
+    monkeypatch.setattr(gepa_config_module, "build_copilot_lm", fake_build_copilot_lm)
+    monkeypatch.setattr(rlm_gepa, "run_optimization", fake_run_optimization)
+
+    status = gepa_main.main(
+        [
+            "--smoke",
+            "--run-dir",
+            str(tmp_path / "smoke"),
+            "--val-ratio",
+            "0.5",
+            "--max-metric-calls",
+            "3",
+        ]
+    )
+    output = capsys.readouterr().out
+
+    assert status == 0
+    assert captured["config"].max_metric_calls == 1
+    assert captured["config"].minibatch_size == 1
+    assert captured["config"].concurrency == 1
+    assert captured["config"].max_iterations == 2
+    assert captured["config"].task_timeout == 180
+    assert captured["config"].proposer_timeout == 120
+    assert captured["config"].display_progress_bar is False
+    assert captured["config"].val_ratio == pytest.approx(1 / gepa_main._count_examples(SAMPLE_TRAIN_DIR))
+    assert "warning: ignoring --val-ratio, --max-metric-calls because --smoke uses a fixed tiny preset" in output
+
+
+def test_warn_for_smoke_overrides_reads_sys_argv_when_argv_is_none(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    monkeypatch.setattr(sys, "argv", ["prog", "--smoke", "--val-ratio=0.5"])
+
+    gepa_main._warn_for_smoke_overrides(None)
+
+    assert "warning: ignoring --val-ratio because --smoke uses a fixed tiny preset" in capsys.readouterr().out
 
 
 @pytest.mark.asyncio

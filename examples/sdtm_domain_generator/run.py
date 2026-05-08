@@ -23,25 +23,16 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-import dspy
+SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR_STR = str(SCRIPT_DIR)
+sys.path[:] = [path for path in sys.path if path != SCRIPT_DIR_STR]
 
 # Add examples/ to path so we can import the sdtm_domain_generator package
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-# Add copilot-dspy to path
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "copilot-dspy"))
+sys.path.insert(0, str(SCRIPT_DIR.parent))
 
-try:
-    from copilot_dspy_client import CopilotLM
-except ImportError:
-    print(
-        "copilot-dspy not installed. Run:\n\n"
-        "  uv pip install "
-        '"copilot-dspy @ git+https://github.com/linm1/copilot-dspy'
-        "@main\"\n",
-        file=sys.stderr,
-    )
-    sys.exit(1)
+import dspy
 
+from sdtm_domain_generator.copilot import build_copilot_lm
 from sdtm_domain_generator import SDTMDomainGenerator
 
 # ---------------------------------------------------------------------------
@@ -125,8 +116,8 @@ async def main() -> None:
     print(f"Sub-LM:   {args.sub_lm_model}")
     print()
 
-    lm = CopilotLM(model=args.model)
-    sub_lm = CopilotLM(model=args.sub_lm_model)
+    lm = build_copilot_lm(args.model)
+    sub_lm = build_copilot_lm(args.sub_lm_model)
 
     generator = SDTMDomainGenerator(
         sub_lm=sub_lm,

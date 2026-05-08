@@ -28,7 +28,7 @@ Skills (host-side tools):
 ```bash
 uv sync
 uv pip install "sas-schema-analyzer @ git+https://github.com/linm1/sas-schema-analyzer.git@refactor/3.8-cli-decouple"
-uv pip install "copilot-dspy @ git+https://github.com/linm1/copilot-dspy@0398e20404723de988cb78cfde89ca8466f99c0a"
+uv pip install "copilot-dspy @ git+https://github.com/linm1/copilot-dspy@main"
 ```
 
 ### 2. Verify Copilot model names
@@ -37,7 +37,19 @@ uv pip install "copilot-dspy @ git+https://github.com/linm1/copilot-dspy@0398e20
 uv run python examples/sdtm_domain_generator/check_models.py
 ```
 
-Update `LLM_MODEL` and `SUB_LM_MODEL` in `run.py` with the verified names.
+`check_models.py` now does two things:
+
+1. Lists model IDs from Copilot's `/models` endpoint.
+2. Probes `/chat/completions` with the same request shape this example uses.
+
+Latest live probe in this repo succeeded with:
+
+- `gpt-5.4`
+- `gpt-5-mini`
+- `gpt-4o`
+- `gpt-4o-mini`
+
+The example now defaults to the GPT-5-class pair `gpt-5.4` and `gpt-5-mini`.
 
 ### 3. Add your input files
 
@@ -82,6 +94,41 @@ sample/output/<timestamp>/
 
 Console output includes domain selection rationale, variable mapping table,
 warnings for unmapped variables, and token usage per LM.
+
+## GEPA Optimization
+
+The GEPA example under `examples/sdtm_domain_generator/gepa/` now defaults to the
+same Copilot OAuth backend, using `gpt-5.4` for executor/proposer LMs and
+`gpt-5-mini` for sub-LM calls.
+
+Project-shape check:
+
+```bash
+uv run python -m examples.sdtm_domain_generator.gepa --check
+```
+
+Tiny optimize smoke test with a one-eval budget:
+
+```bash
+uv run python -m examples.sdtm_domain_generator.gepa --smoke
+```
+
+Note: this example now uses a repo-local adaptive Copilot wrapper that keeps the
+usual `max_tokens` field for GPT-4-class models and switches to
+`max_completion_tokens` for GPT-5-class models on `/chat/completions`.
+
+Latest verified chat-completions-compatible models for this example:
+
+| Model | Probe result | Token field |
+|------|--------------|-------------|
+| `gpt-5.4` | 200 | `max_completion_tokens` |
+| `gpt-5-mini` | 200 | `max_completion_tokens` |
+| `gpt-4o` | 200 | `max_tokens` |
+| `gpt-4o-mini` | 200 | `max_tokens` |
+
+Latest GPT-5 GEPA smoke artifact:
+
+- `runs/sdtm_gepa_gpt5_smoke_20260508_173232/optimization_summary.json`
 
 ## How it works
 
