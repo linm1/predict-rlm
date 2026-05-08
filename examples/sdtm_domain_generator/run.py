@@ -37,7 +37,7 @@ except ImportError:
         "copilot-dspy not installed. Run:\n\n"
         "  uv pip install "
         '"copilot-dspy @ git+https://github.com/linm1/copilot-dspy'
-        "@0398e20404723de988cb78cfde89ca8466f99c0a\"\n",
+        "@main\"\n",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -125,8 +125,8 @@ async def main() -> None:
     print(f"Sub-LM:   {args.sub_lm_model}")
     print()
 
-    lm = CopilotLM(model=args.model, cache_ttl=0)
-    sub_lm = CopilotLM(model=args.sub_lm_model, cache_ttl=0)
+    lm = CopilotLM(model=args.model)
+    sub_lm = CopilotLM(model=args.sub_lm_model)
 
     generator = SDTMDomainGenerator(
         sub_lm=sub_lm,

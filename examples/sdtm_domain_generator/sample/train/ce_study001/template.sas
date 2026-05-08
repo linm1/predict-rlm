@@ -1,0 +1,63 @@
+/*****************************************************************************
+ * Program    : ce.sas
+ * Domain     : CE - Clinical Events
+ * Class      : Events
+ * Source     : RAW_CE (clinical event CRF data)
+ * SDTM Ref   : SDTM IG v3.4 Section 6.3
+ *****************************************************************************/
+
+data sdtm.ce;
+    length STUDYID $20 DOMAIN $2 USUBJID $40
+           CETERM $200 CEDECOD $200 CESEV $8 CESER $1 CEOUT $50
+           CESTDTC CEENDTC $10;
+    length CESEQ CESTDY CEENDY 8;
+
+    set raw.raw_ce;
+
+    STUDYID = "STUDY001";
+    DOMAIN  = "CE";
+    USUBJID = catx(".", STUDYID, SITEID, SUBJID);
+    CESEQ   = SEQ;
+    CETERM  = CE_TERM;
+    CEDECOD = upcase(CE_TERM);   /* Placeholder: replace with MedDRA PT */
+
+    select(upcase(CE_SEVERITY));
+        when("MILD")     CESEV = "MILD";
+        when("MODERATE") CESEV = "MODERATE";
+        when("SEVERE")   CESEV = "SEVERE";
+        otherwise        CESEV = "";
+    end;
+
+    CESER = ifc(upcase(CE_SERIOUS) = "YES", "Y", "N");
+
+    select(upcase(CE_OUTCOME));
+        when("RESOLVED")  CEOUT = "RECOVERED/RESOLVED";
+        when("RESOLVING") CEOUT = "RECOVERING/RESOLVING";
+        when("FATAL")     CEOUT = "FATAL";
+        otherwise         CEOUT = "UNKNOWN";
+    end;
+
+    CESTDTC = CE_START_DATE;
+    if CE_END_DATE ne "" then CEENDTC = CE_END_DATE;
+    if CESTDTC ne "" then
+        CESTDY = input(CESTDTC, yymmdd10.) - input(RFSTDTC, yymmdd10.) + 1;
+
+    label
+        STUDYID = "Study Identifier"
+        DOMAIN  = "Domain Abbreviation"
+        USUBJID = "Unique Subject Identifier"
+        CESEQ   = "Sequence Number"
+        CETERM  = "Reported Term for the Clinical Event"
+        CEDECOD = "Dictionary-Derived Term"
+        CESEV   = "Severity/Intensity"
+        CESER   = "Serious Event"
+        CEOUT   = "Outcome of Event"
+        CESTDTC = "Start Date/Time of Event"
+        CEENDTC = "End Date/Time of Event"
+        CESTDY  = "Study Day of Start of Event";
+
+    keep STUDYID DOMAIN USUBJID CESEQ CETERM CEDECOD CESEV CESER CEOUT
+         CESTDTC CEENDTC CESTDY CEENDY;
+run;
+
+proc sort data=sdtm.ce; by STUDYID USUBJID CESEQ; run;

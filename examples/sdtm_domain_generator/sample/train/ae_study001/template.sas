@@ -1,0 +1,87 @@
+/*****************************************************************************
+ * Program    : ae.sas
+ * Domain     : AE - Adverse Events
+ * Class      : Events
+ * Source     : RAW_AE (adverse event CRF data)
+ * SDTM Ref   : SDTM IG v3.4 Section 6.2
+ *****************************************************************************/
+
+%include "macros/sdtm_macros.sas";
+
+data sdtm.ae;
+    length STUDYID $20 DOMAIN $2 USUBJID $40
+           AETERM $200 AEDECOD $200 AELLT $200 AEHLT $200 AEHLGT $200
+           AEBODSYS $200 AESOC $200 AESEV $8 AESER $1 AEACN $30
+           AEREL $40 AEOUT $50 AESTDTC AEENDTC $10;
+    length AESEQ AELLTCD AEPTCD AEHLTCD AEHLGTCD AEBDSYCD AESOCCD
+           AESTDY AEENDY 8;
+
+    set raw.raw_ae;
+
+    /* --- Required variables --- */
+    STUDYID  = "STUDY001";
+    DOMAIN   = "AE";
+    USUBJID  = catx(".", STUDYID, SITEID, SUBJID);
+    AESEQ    = SEQ;
+    AETERM   = AE_TERM;
+
+    /* Dictionary coding (MedDRA) - provided by safety db */
+    AEDECOD  = upcase(AE_TERM);   /* Placeholder: replace with MedDRA PT */
+
+    /* --- Controlled Terminology mappings --- */
+    select(upcase(AE_SEVERITY));
+        when("MILD")     AESEV = "MILD";
+        when("MODERATE") AESEV = "MODERATE";
+        when("SEVERE")   AESEV = "SEVERE";
+        otherwise        AESEV = "";
+    end;
+
+    select(upcase(AE_SERIOUS));
+        when("YES") AESER = "Y";
+        when("NO")  AESER = "N";
+        otherwise   AESER = "";
+    end;
+
+    select(upcase(AE_ACTION));
+        when("NONE")           AEACN = "DOSE NOT CHANGED";
+        when("DOSE REDUCED")   AEACN = "DOSE REDUCED";
+        when("DRUG WITHDRAWN") AEACN = "DRUG WITHDRAWN";
+        otherwise              AEACN = "NOT APPLICABLE";
+    end;
+
+    select(upcase(AE_OUTCOME));
+        when("RESOLVED")     AEOUT = "RECOVERED/RESOLVED";
+        when("RESOLVING")    AEOUT = "RECOVERING/RESOLVING";
+        when("NOT RESOLVED") AEOUT = "NOT RECOVERED/NOT RESOLVED";
+        otherwise            AEOUT = "UNKNOWN";
+    end;
+
+    /* --- Date variables (ISO 8601) --- */
+    AESTDTC = AE_START_DATE;
+    if AE_END_DATE ne "" then AEENDTC = AE_END_DATE;
+
+    /* --- Study Day derivation --- */
+    if AESTDTC ne "" then
+        AESTDY = input(AESTDTC, yymmdd10.) - input(RFSTDTC, yymmdd10.) + 1;
+
+    label
+        STUDYID  = "Study Identifier"
+        DOMAIN   = "Domain Abbreviation"
+        USUBJID  = "Unique Subject Identifier"
+        AESEQ    = "Sequence Number"
+        AETERM   = "Reported Term for the Adverse Event"
+        AEDECOD  = "Dictionary-Derived Term"
+        AESEV    = "Severity/Intensity"
+        AESER    = "Serious Event"
+        AEACN    = "Action Taken with Study Treatment"
+        AEOUT    = "Outcome of Adverse Event"
+        AESTDTC  = "Start Date/Time of Adverse Event"
+        AEENDTC  = "End Date/Time of Adverse Event"
+        AESTDY   = "Study Day of Start of Adverse Event";
+
+    keep STUDYID DOMAIN USUBJID AESEQ AETERM AEDECOD AELLT AELLTCD
+         AEPTCD AEHLT AEHLTCD AEHLGT AEHLGTCD AEBODSYS AEBDSYCD AESOC AESOCCD
+         AESEV AESER AEACN AEREL AEOUT AESTDTC AEENDTC AESTDY AEENDY;
+run;
+
+proc sort data=sdtm.ae; by STUDYID USUBJID AESEQ; run;
