@@ -3,13 +3,20 @@ from __future__ import annotations
 import inspect
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+
+from copilot_dspy_client import CopilotLM
 
 from rlm_gepa import AgentSpec, OptimizeConfig
 
-from ..copilot import build_copilot_lm
 from ..signature import GenerateSDTMDomain
-from ..skills import analyze_sas_file, analyze_sas_folder, analyze_sdtm_domain, list_sas_files, list_sdtm_domains, read_sas_template
+from ..skills import (
+    analyze_sas_file,
+    analyze_sas_folder,
+    analyze_sdtm_domain,
+    list_sas_files,
+    list_sdtm_domains,
+    read_sas_template,
+)
 
 COPILOT_MODEL = "gpt-5.4"
 COPILOT_SUB_LM_MODEL = "gpt-5-mini"
@@ -98,9 +105,9 @@ def default_config(
     proposer_model = proposer_model or model
     proposer_sub_lm_model = proposer_sub_lm_model or sub_lm_model
     return SdtmGepaConfig(
-        executor_lm=build_copilot_lm(model),
-        executor_sub_lm=build_copilot_lm(sub_lm_model),
-        proposer_lm=build_copilot_lm(proposer_model),
-        proposer_sub_lm=build_copilot_lm(proposer_sub_lm_model),
+        executor_lm=CopilotLM(model=model),
+        executor_sub_lm=CopilotLM(model=sub_lm_model),
+        proposer_lm=CopilotLM(model=proposer_model),
+        proposer_sub_lm=CopilotLM(model=proposer_sub_lm_model),
         max_metric_calls=200,
     )

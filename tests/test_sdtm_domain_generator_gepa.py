@@ -99,10 +99,11 @@ def test_gepa_main_check_validates_project_without_lm_env(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ):
-    def fake_build_copilot_lm(model: str) -> SimpleNamespace:
-        return SimpleNamespace(model=model)
+    class FakeCopilotLM:
+        def __init__(self, *, model: str, **_kwargs: object) -> None:
+            self.model = model
 
-    monkeypatch.setattr(gepa_config_module, "build_copilot_lm", fake_build_copilot_lm)
+    monkeypatch.setattr(gepa_config_module, "CopilotLM", FakeCopilotLM)
 
     status = gepa_main.main(["--check"])
     output = capsys.readouterr().out
@@ -116,16 +117,12 @@ def test_gepa_main_check_validates_project_without_lm_env(
 def test_default_config_builds_copilot_lms(monkeypatch: pytest.MonkeyPatch):
     created_models: list[str] = []
 
-    def fake_build_copilot_lm(model: str) -> SimpleNamespace:
-        created_models.append(model)
-        return SimpleNamespace(model=model)
+    class FakeCopilotLM:
+        def __init__(self, *, model: str, **_kwargs: object) -> None:
+            created_models.append(model)
+            self.model = model
 
-    monkeypatch.setattr(
-        gepa_config_module,
-        "build_copilot_lm",
-        fake_build_copilot_lm,
-        raising=False,
-    )
+    monkeypatch.setattr(gepa_config_module, "CopilotLM", FakeCopilotLM)
 
     config = gepa_config_module.default_config()
 
@@ -182,15 +179,16 @@ def test_gepa_main_smoke_uses_one_eval_budget(
 ):
     captured: dict[str, object] = {}
 
-    def fake_build_copilot_lm(model: str) -> SimpleNamespace:
-        return SimpleNamespace(model=model)
+    class FakeCopilotLM:
+        def __init__(self, *, model: str, **_kwargs: object) -> None:
+            self.model = model
 
     def fake_run_optimization(project, config):
         captured["project"] = project
         captured["config"] = config
         return SimpleNamespace(run_dir=str(tmp_path), best_idx=0, best_val_score=0.0)
 
-    monkeypatch.setattr(gepa_config_module, "build_copilot_lm", fake_build_copilot_lm)
+    monkeypatch.setattr(gepa_config_module, "CopilotLM", FakeCopilotLM)
     monkeypatch.setattr(rlm_gepa, "run_optimization", fake_run_optimization)
 
     status = gepa_main.main(

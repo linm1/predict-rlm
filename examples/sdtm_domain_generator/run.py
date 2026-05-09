@@ -13,7 +13,7 @@ Then run:
 
 Requires:
     uv pip install sas-schema-analyzer
-    uv pip install "copilot-dspy @ git+https://github.com/linm1/copilot-dspy@0398e20404723de988cb78cfde89ca8466f99c0a"
+    uv pip install "copilot-dspy @ git+https://github.com/linm1/copilot-dspy@main"
 """
 
 import argparse
@@ -32,7 +32,7 @@ sys.path.insert(0, str(SCRIPT_DIR.parent))
 
 import dspy
 
-from sdtm_domain_generator.copilot import build_copilot_lm
+from copilot_dspy_client import CopilotLM
 from sdtm_domain_generator import SDTMDomainGenerator
 
 # ---------------------------------------------------------------------------
@@ -116,8 +116,8 @@ async def main() -> None:
     print(f"Sub-LM:   {args.sub_lm_model}")
     print()
 
-    lm = build_copilot_lm(args.model)
-    sub_lm = build_copilot_lm(args.sub_lm_model)
+    lm = CopilotLM(model=args.model)
+    sub_lm = CopilotLM(model=args.sub_lm_model)
 
     generator = SDTMDomainGenerator(
         sub_lm=sub_lm,

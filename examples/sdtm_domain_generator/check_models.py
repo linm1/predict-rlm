@@ -8,7 +8,6 @@ Then update LLM_MODEL and SUB_LM_MODEL in run.py with the chat-compatible names.
 """
 
 import json
-import importlib.util
 import sys
 from pathlib import Path
 
@@ -22,30 +21,41 @@ except ImportError:
     print("httpx not installed. Run: uv pip install httpx", file=sys.stderr)
     sys.exit(1)
 
-
-def _load_local_copilot_helpers() -> tuple[object, object, object, object]:
-    spec = importlib.util.spec_from_file_location(
-        "sdtm_domain_generator_copilot_helpers",
-        SCRIPT_DIR / "copilot.py",
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load Copilot helper module from {SCRIPT_DIR / 'copilot.py'}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return (
-        module.build_chat_completion_request,
-        module.build_copilot_headers,
-        module.build_copilot_lm,
-        module.uses_max_completion_tokens,
-    )
-
-
-(
-    build_chat_completion_request,
-    build_copilot_headers,
-    build_copilot_lm,
+from copilot_dspy_client import (  # noqa: E402
+    VS_CODE_HEADERS,
+    CopilotLM,
     uses_max_completion_tokens,
-) = _load_local_copilot_helpers()
+)
+
+
+def _build_probe_request(
+    model: str,
+    messages: list[dict[str, str]],
+    *,
+    temperature: float,
+    max_output_tokens: int,
+    top_p: float,
+) -> dict[str, object]:
+    request: dict[str, object] = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "top_p": top_p,
+    }
+    if uses_max_completion_tokens(model):
+        request["max_completion_tokens"] = max_output_tokens
+    else:
+        request["max_tokens"] = max_output_tokens
+    return request
+
+
+def _build_copilot_headers(token: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "Openai-Intent": "conversation-edits",
+        **VS_CODE_HEADERS,
+    }
 
 
 def _extract_model_ids(payload: object) -> list[str]:
@@ -54,7 +64,7 @@ def _extract_model_ids(payload: object) -> list[str]:
 
 
 def _probe_model(model: str, token: str) -> dict[str, object]:
-    request = build_chat_completion_request(
+    request = _build_probe_request(
         model,
         [{"role": "user", "content": "Reply with ok."}],
         temperature=0.7,
@@ -64,7 +74,7 @@ def _probe_model(model: str, token: str) -> dict[str, object]:
     response = httpx.post(
         "https://api.githubcopilot.com/chat/completions",
         json=request,
-        headers=build_copilot_headers(token),
+        headers=_build_copilot_headers(token),
         timeout=30,
     )
     body: object
@@ -90,7 +100,7 @@ def _probe_model(model: str, token: str) -> dict[str, object]:
 
 def main() -> None:
     print("Authenticating with GitHub Copilot...")
-    lm = build_copilot_lm(model="gpt-4o")
+    lm = CopilotLM(model="gpt-4o")
     token = lm.token_manager.get_token()
 
     print("Fetching available models from https://api.githubcopilot.com/models ...\n")
