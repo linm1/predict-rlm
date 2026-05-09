@@ -189,12 +189,12 @@ async def main() -> None:
         lm_usage = lm.get_usage()
         sub_usage = sub_lm.get_usage()
         print(
-            f"\nMain LM tokens:  {lm_usage.get('prompt_tokens', 0):,} in"
-            f" / {lm_usage.get('completion_tokens', 0):,} out"
+            f"\nMain LM tokens:  {lm_usage.get('input_tokens', 0):,} in"
+            f" / {lm_usage.get('output_tokens', 0):,} out"
         )
         print(
-            f"Sub-LM tokens:   {sub_usage.get('prompt_tokens', 0):,} in"
-            f" / {sub_usage.get('completion_tokens', 0):,} out"
+            f"Sub-LM tokens:   {sub_usage.get('input_tokens', 0):,} in"
+            f" / {sub_usage.get('output_tokens', 0):,} out"
         )
     except Exception:
         pass

@@ -11,9 +11,8 @@ import json
 import sys
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-SCRIPT_DIR_STR = str(SCRIPT_DIR)
-sys.path[:] = [path for path in sys.path if path != SCRIPT_DIR_STR]
+_SCRIPT_DIR_STR = str(Path(__file__).resolve().parent)
+sys.path[:] = [path for path in sys.path if path != _SCRIPT_DIR_STR]
 
 try:
     import httpx
